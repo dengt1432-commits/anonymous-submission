@@ -1,0 +1,101 @@
+#!/bin/bash
+LLAVA_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+dataset_name=$1
+
+# Uncomment and set the following variables correspondingly to run this script:
+
+cd "${LLAVA_ROOT}"
+
+# Install yolk3k if not installed
+if ! pip show yolk3k > /dev/null 2>&1; then
+    pip install yolk3k
+fi
+
+# Get the installed version of transformers
+installed_version=$(pip show transformers | grep Version | cut -d ' ' -f 2)
+
+# Get the latest version of transformers from PyPI
+latest_version=$(yolk -V transformers | cut -d ' ' -f 2)
+
+# Check if the installed version is not the latest
+if [ "$installed_version" != "$latest_version" ]; then
+    pip install -U transformers
+fi
+
+# Get the installed version of deepspeed
+installed_version=$(pip show deepspeed | grep Version | cut -d ' ' -f 2)
+
+# Get the latest version of deepspeed from PyPI
+latest_version=$(yolk -V deepspeed | cut -d ' ' -f 2)
+
+# Check if the installed version is not the latest
+if [ "$installed_version" != "$latest_version" ]; then
+    pip install deepspeed==0.12.2
+fi
+
+# Install yolk3k if not installed
+if ! pip show flash-attn > /dev/null 2>&1; then
+    pip install flash-attn --no-build-isolation
+fi
+
+
+################## VICUNA ##################
+PROMPT_VERSION=v1
+MODEL_VERSION="vicuna-7b-v1-5"
+################## VICUNA ##################
+
+################## project ##################
+PROJECT_NAME="ds_llava-vicuna-7b-v1-5-mlp2x_gelu-pretrain_blip558k_plain"
+
+################## data ##################
+DATA_NAME=$dataset_name
+
+
+# wandb configure
+# WANDB_API_KEY is supplied by the caller or an existing login.
+if [[ -n "${WANDB_API_KEY:-}" ]]; then
+    wandb login "$WANDB_API_KEY"
+fi
+export WANDB_NAME=$PROJECT_NAME--$MODEL_VERSION--$DATA_NAME
+
+export WANDB_PROJECT=LLaVA_Mixtral
+
+export WANDB_MODE=online
+
+wandb online
+
+
+deepspeed --master_port 26000 \
+    llava/train/train_mem.py \
+    --deepspeed ./scripts/zero2.json \
+    --model_name_or_path ./checkpoints/$MODEL_VERSION \
+    --version $PROMPT_VERSION \
+    --data_path ./playground/data/$DATA_NAME.json \
+    --image_folder ./data \
+    --vision_tower openai/clip-vit-large-patch14 \
+    --pretrain_mm_mlp_adapter ./checkpoints/$PROJECT_NAME/mm_projector.bin \
+    --mm_vision_select_layer -2 \
+    --mm_projector_type mlp2x_gelu \
+    --mm_use_im_start_end False \
+    --mm_use_im_patch_token False \
+    --bf16 True \
+    --output_dir ./checkpoints/llava--$PROJECT_NAME--$MODEL_VERSION--$DATA_NAME--finetune \
+    --num_train_epochs 1 \
+    --per_device_train_batch_size 16 \
+    --per_device_eval_batch_size 4 \
+    --gradient_accumulation_steps 1 \
+    --evaluation_strategy "no" \
+    --save_strategy "steps" \
+    --save_steps 50000 \
+    --save_total_limit 1 \
+    --learning_rate 2e-5 \
+    --weight_decay 0. \
+    --warmup_ratio 0.03 \
+    --lr_scheduler_type "cosine" \
+    --logging_steps 1 \
+    --tf32 True \
+    --model_max_length 2048 \
+    --gradient_checkpointing True \
+    --dataloader_num_workers 16 \
+    --lazy_preprocess True \
+    --report_to wandb

@@ -1,0 +1,12 @@
+include: seedbench.yaml
+task: "seedbench_image_only"
+process_docs: !function utils.seedbench_image_only_process_docs
+metric_list:
+  - metric: seed_image
+    aggregation: !function utils.seed_aggregation_result
+    higher_is_better: true
+  - metric: seed_all
+    aggregation: !function utils.seed_aggregation_result
+    higher_is_better: true
+metadata:
+  - version: 0.0
