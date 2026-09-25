@@ -1,8 +1,8 @@
 # AdaVSkip
 
-## 环境配置
+## Environment Setup
 
-Linux x86_64、Python 3.12、CUDA 12.8。以下命令在项目根目录执行：
+Linux x86_64, Python 3.12, and CUDA 12.8. Run the following commands from the project root:
 
 ```bash
 conda create -n adavskip python=3.12 -y
@@ -13,11 +13,11 @@ python -m pip install -r requirements.txt
 export PYTHON_BIN="$(command -v python)"
 ```
 
-## 测试
+## Evaluation
 
 ```bash
-# 完整 MME 评测
+# Run the full MME evaluation
 bash lmms-eval-main/examples/models/llava_1_5.sh
 ```
 
-默认使用 `liuhaotian/llava-v1.5-7b` 和 `router_weight/16_1.5.safetensors`，结果保存在 `log/`。
+By default, evaluation uses `liuhaotian/llava-v1.5-7b` and `router_weight/16_1.5.safetensors`. Results are saved in `log/`.
